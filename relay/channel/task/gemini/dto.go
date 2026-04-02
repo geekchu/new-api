@@ -1,3 +1,4 @@
+//go:build ignore
 package gemini
 
 // VeoImageInput represents an image input for Veo image-to-video.

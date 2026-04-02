@@ -1,3 +1,4 @@
+//go:build ignore
 package constant
 
 // WaffoPayMethod defines the display and API parameter mapping for Waffo payment methods.

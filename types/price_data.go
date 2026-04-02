@@ -22,6 +22,7 @@ type PriceData struct {
 	AudioCompletionRatio float64
 	OtherRatios          map[string]float64
 	UsePrice             bool
+	Quota                int // 实际消耗额度
 	QuotaToPreConsume    int // 预消耗额度
 	GroupRatioInfo       GroupRatioInfo
 }
