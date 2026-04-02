@@ -237,6 +237,10 @@ type Usage struct {
 
 	// OpenRouter Params
 	Cost any `json:"cost,omitempty"`
+
+	// Usage metadata
+	UsageSource   string `json:"usage_source,omitempty"`
+	UsageSemantic string `json:"usage_semantic,omitempty"`
 }
 
 type OpenAIVideoResponse struct {

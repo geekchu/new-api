@@ -95,12 +95,23 @@ func (m Properties) Value() (driver.Value, error) {
 	return json.Marshal(m)
 }
 
+type TaskBillingContext struct {
+	ModelPrice      float64            `json:"model_price,omitempty"`
+	GroupRatio      float64            `json:"group_ratio,omitempty"`
+	ModelRatio      float64            `json:"model_ratio,omitempty"`
+	OtherRatios     map[string]float64 `json:"other_ratios,omitempty"`
+	OriginModelName string             `json:"origin_model_name,omitempty"`
+	PerCallBilling  bool               `json:"per_call_billing,omitempty"`
+}
+
 type TaskPrivateData struct {
-	Key              string `json:"key,omitempty"`
-	TokenId          int    `json:"token_id,omitempty"`
-	BillingSource    string `json:"billing_source,omitempty"`
-	SubscriptionId   int    `json:"subscription_id,omitempty"`
-	BillingContext   string `json:"billing_context,omitempty"`
+	Key              string               `json:"key,omitempty"`
+	UpstreamTaskID   string               `json:"upstream_task_id,omitempty"`
+	ResultURL        string               `json:"result_url,omitempty"`
+	TokenId          int                  `json:"token_id,omitempty"`
+	BillingSource    string               `json:"billing_source,omitempty"`
+	SubscriptionId   int                  `json:"subscription_id,omitempty"`
+	BillingContext   *TaskBillingContext  `json:"billing_context,omitempty"`
 }
 
 func (p *TaskPrivateData) Scan(val interface{}) error {
@@ -451,3 +462,69 @@ func (t *Task) ToOpenAIVideo() *dto.OpenAIVideo {
 	openAIVideo.SetMetadata("url", t.FailReason)
 	return openAIVideo
 }
+
+func GetTimedOutUnfinishedTasks(cutoffUnix int64, limit int) []*Task {
+	var tasks []*Task
+	err := DB.Where("progress != ?", "100%").
+		Where("status NOT IN ?", []string{string(TaskStatusFailure), string(TaskStatusSuccess)}).
+		Where("submit_time < ?", cutoffUnix).
+		Order("submit_time").
+		Limit(limit).
+		Find(&tasks).Error
+	if err != nil {
+		return nil
+	}
+	return tasks
+}
+
+func (t *Task) GetUpstreamTaskID() string {
+	if t.PrivateData.UpstreamTaskID != "" {
+		return t.PrivateData.UpstreamTaskID
+	}
+	return t.TaskID
+}
+
+func (t *Task) UpdateWithStatus(fromStatus TaskStatus) (bool, error) {
+	result := DB.Model(t).Where("status = ?", fromStatus).Select("*").Updates(t)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
+type taskSnapshot struct {
+	Status     TaskStatus
+	Progress   string
+	StartTime  int64
+	FinishTime int64
+	FailReason string
+	ResultURL  string
+	Data       json.RawMessage
+}
+
+func (s taskSnapshot) Equal(other taskSnapshot) bool {
+	return s.Status == other.Status &&
+		s.Progress == other.Progress &&
+		s.StartTime == other.StartTime &&
+		s.FinishTime == other.FinishTime &&
+		s.FailReason == other.FailReason &&
+		s.ResultURL == other.ResultURL &&
+		string(s.Data) == string(other.Data)
+}
+
+func (t *Task) Snapshot() taskSnapshot {
+	return taskSnapshot{
+		Status:     t.Status,
+		Progress:   t.Progress,
+		StartTime:  t.StartTime,
+		FinishTime: t.FinishTime,
+		FailReason: t.FailReason,
+		ResultURL:  t.PrivateData.ResultURL,
+		Data:       t.Data,
+	}
+}
+
+func (t Task) GetResultURL() string {
+	return t.PrivateData.ResultURL
+}
+

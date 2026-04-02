@@ -3,7 +3,17 @@
     "allow": [
       "Bash(go build:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Bash(export CGO_ENABLED=0)",
+      "Bash(export GOOS=linux)",
+      "Bash(export GOARCH=amd64)",
+      "Bash(go mod:*)",
+      "Bash(ls constant/*.go)",
+      "Bash(grep -E \"\\\\.go$\")",
+      "Bash(xargs -I {} git show v0.12.0:{})"
     ]
   }
 }

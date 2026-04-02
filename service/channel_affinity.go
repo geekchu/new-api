@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/pkg/cachex"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/hot"
 	"github.com/tidwall/gjson"
@@ -27,6 +28,9 @@ const (
 
 	channelAffinityCacheNamespace           = "new-api:channel_affinity:v1"
 	channelAffinityUsageCacheStatsNamespace = "new-api:channel_affinity_usage_cache_stats:v1"
+
+	cacheTokenRateModeCachedOverPrompt           = "cached_over_prompt"
+	cacheTokenRateModeCachedOverPromptPlusCached = "cached_over_prompt_plus_cached"
 )
 
 var (
@@ -592,12 +596,16 @@ type ChannelAffinityUsageCacheCounters struct {
 
 var channelAffinityUsageCacheStatsLocks [64]sync.Mutex
 
-func ObserveChannelAffinityUsageCacheFromContext(c *gin.Context, usage *dto.Usage) {
+func ObserveChannelAffinityUsageCacheFromContext(c *gin.Context, usage *dto.Usage, cachedTokenRateMode ...string) {
 	statsCtx, ok := GetChannelAffinityStatsContext(c)
 	if !ok {
 		return
 	}
-	observeChannelAffinityUsageCache(statsCtx, usage)
+	if len(cachedTokenRateMode) > 0 {
+		observeChannelAffinityUsageCache(statsCtx, usage, cachedTokenRateMode[0])
+	} else {
+		observeChannelAffinityUsageCache(statsCtx, usage)
+	}
 }
 
 func GetChannelAffinityUsageCacheStats(ruleName, usingGroup, keyFp string) ChannelAffinityUsageCacheStats {
@@ -639,7 +647,7 @@ func GetChannelAffinityUsageCacheStats(ruleName, usingGroup, keyFp string) Chann
 	}
 }
 
-func observeChannelAffinityUsageCache(statsCtx ChannelAffinityStatsContext, usage *dto.Usage) {
+func observeChannelAffinityUsageCache(statsCtx ChannelAffinityStatsContext, usage *dto.Usage, cachedTokenRateMode ...string) {
 	entryKey := channelAffinityUsageCacheEntryKey(statsCtx.RuleName, statsCtx.UsingGroup, statsCtx.KeyFingerprint)
 	if entryKey == "" {
 		return
@@ -780,4 +788,19 @@ func channelAffinityUsageCacheStatsLock(key string) *sync.Mutex {
 	_, _ = h.Write([]byte(key))
 	idx := h.Sum32() % uint32(len(channelAffinityUsageCacheStatsLocks))
 	return &channelAffinityUsageCacheStatsLocks[idx]
+}
+
+func ObserveChannelAffinityUsageCacheByRelayFormat(c *gin.Context, usage *dto.Usage, relayFormat types.RelayFormat) {
+	ObserveChannelAffinityUsageCacheFromContext(c, usage, cachedTokenRateModeByRelayFormat(relayFormat))
+}
+
+func cachedTokenRateModeByRelayFormat(relayFormat types.RelayFormat) string {
+	switch relayFormat {
+	case types.RelayFormatOpenAI, types.RelayFormatOpenAIResponses, types.RelayFormatOpenAIResponsesCompaction:
+		return cacheTokenRateModeCachedOverPrompt
+	case types.RelayFormatClaude:
+		return cacheTokenRateModeCachedOverPromptPlusCached
+	default:
+		return ""
+	}
 }

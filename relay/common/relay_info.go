@@ -146,6 +146,10 @@ type RelayInfo struct {
 	// ["openai", "openai_responses"] or ["openai", "claude"].
 	RequestConversionChain []types.RelayFormat
 
+	// FinalRequestRelayFormat is the final format sent to upstream.
+	// If empty, GetFinalRequestRelayFormat falls back to last item in RequestConversionChain or RelayFormat.
+	FinalRequestRelayFormat types.RelayFormat
+
 	ThinkingContentInfo
 	TokenCountMeta
 	*ClaudeConvertInfo
@@ -769,4 +773,17 @@ func RemoveGeminiDisabledFields(jsonData []byte) ([]byte, error) {
 		return jsonData, nil
 	}
 	return jsonDataAfter, nil
+}
+
+func (info *RelayInfo) GetFinalRequestRelayFormat() types.RelayFormat {
+	if info == nil {
+		return ""
+	}
+	if info.FinalRequestRelayFormat != "" {
+		return info.FinalRequestRelayFormat
+	}
+	if len(info.RequestConversionChain) > 0 {
+		return info.RequestConversionChain[len(info.RequestConversionChain)-1]
+	}
+	return info.RelayFormat
 }

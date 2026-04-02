@@ -419,3 +419,46 @@ func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64,
 
 	return total, nil
 }
+
+type RecordTaskBillingLogParams struct {
+	UserId    int
+	LogType   int
+	Content   string
+	ChannelId int
+	ModelName string
+	Quota     int
+	TokenId   int
+	Group     string
+	Other     map[string]interface{}
+}
+
+func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
+	if params.LogType == LogTypeConsume && !common.LogConsumeEnabled {
+		return
+	}
+	username, _ := GetUsernameById(params.UserId, false)
+	tokenName := ""
+	if params.TokenId > 0 {
+		if token, err := GetTokenById(params.TokenId); err == nil {
+			tokenName = token.Name
+		}
+	}
+	log := &Log{
+		UserId:    params.UserId,
+		Username:  username,
+		CreatedAt: common.GetTimestamp(),
+		Type:      params.LogType,
+		Content:   params.Content,
+		TokenName: tokenName,
+		ModelName: params.ModelName,
+		Quota:     params.Quota,
+		ChannelId: params.ChannelId,
+		TokenId:   params.TokenId,
+		Group:     params.Group,
+		Other:     common.MapToJsonStr(params.Other),
+	}
+	err := LOG_DB.Create(log).Error
+	if err != nil {
+		common.SysLog("failed to record task billing log: " + err.Error())
+	}
+}
