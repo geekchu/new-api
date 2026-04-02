@@ -17,7 +17,6 @@ func SetRelayRouter(router *gin.Engine) {
 	router.Use(middleware.StatsMiddleware())
 	// https://platform.openai.com/docs/api-reference/introduction
 	modelsRouter := router.Group("/v1/models")
-	modelsRouter.Use(middleware.TokenAuth())
 	{
 		modelsRouter.GET("", func(c *gin.Context) {
 			switch {
